@@ -157,3 +157,128 @@ def photos_of(house_row):
         except (ValueError, TypeError):
             return [v]
     return []
+
+
+# ---------- AI（混元，只产出文字） ----------
+AI_TIMEOUT = 120  # 推理模型慢，且上游限流时服务端会重试一轮
+
+
+def _req_ex(method, path, data=None, timeout=AI_TIMEOUT):
+    """带业务错误的请求：把后端 {"error": ...} 的原话抛出来。"""
+    url = base_url() + path
+    try:
+        if method == "GET":
+            r = requests.get(url, timeout=timeout)
+        else:
+            r = requests.request(method, url, json=data, timeout=timeout)
+    except requests.exceptions.ConnectionError:
+        raise RuntimeError("连不上服务器，检查网络")
+    except requests.exceptions.Timeout:
+        raise RuntimeError("AI 思考超时（%d 秒），再试一次" % timeout)
+
+    if not r.ok:
+        msg = ""
+        try:
+            body = r.json()
+            if isinstance(body, dict):
+                msg = body.get("error") or ""
+        except Exception:
+            pass
+        if not msg:
+            if r.status_code == 404:
+                msg = "后端还没更新 AI 接口，请先更新服务器"
+            elif r.status_code == 503:
+                msg = "服务器还没配置 AI Key"
+            else:
+                msg = "服务器返回 %s" % r.status_code
+        raise RuntimeError(msg)
+    try:
+        return r.json()
+    except ValueError:
+        raise RuntimeError("服务器返回格式异常")
+
+
+def ai_status():
+    return _req_ex("GET", "/api/ai/status", timeout=20).get("data", {})
+
+
+def ai_pitch(house_id=None, house=None, tone=""):
+    payload = {"tone": tone}
+    if house_id:
+        payload["house_id"] = house_id
+    if house is not None:
+        payload["house"] = house
+    return _req_ex("POST", "/api/ai/pitch", payload).get("data", {})
+
+
+def ai_followup(customer_id, scene="wechat"):
+    return _req_ex("POST", "/api/ai/followup",
+                   {"customer_id": customer_id, "scene": scene}).get("data", {})
+
+
+def ai_profile(customer_id):
+    return _req_ex("GET", "/api/ai/profile/%s" % customer_id).get("data", {})
+
+
+def ai_match(customer_id, house_ids=None, limit=5):
+    """客户一键匹配房源：本地粗排 + AI 出适配度与理由。"""
+    payload = {"customer_id": customer_id, "limit": limit}
+    if house_ids:
+        payload["house_ids"] = house_ids
+    return _req_ex("POST", "/api/ai/match", payload).get("data", {})
+
+
+def ai_copy(house_id, platform="xiaohongshu"):
+    """图文作品文案：标题 + 正文 + #话题。"""
+    return _req_ex("POST", "/api/ai/copy",
+                   {"house_id": house_id, "platform": platform}).get("data", {})
+
+
+def ai_image(house_id, platform="xiaohongshu", n=1, size="1024x1024"):
+    """AI 去重图（平台变体）。返回 {images:[url], prompt, platform}。"""
+    return _req_ex("POST", "/api/ai/image",
+                   {"house_id": house_id, "platform": platform,
+                    "n": n, "size": size}).get("data", {})
+
+
+# ---------- 高德地理（真实坐标/里程，接口不可用显示「—」） ----------
+def geo_geocode(address, city="成都"):
+    """地址解析 → 经纬度。失败抛异常，调用方兜底显示「—」。"""
+    from urllib.parse import quote
+    path = "/api/geo/geocode?address=%s&city=%s" % (quote(str(address)), quote(str(city)))
+    return _req_ex("GET", path, timeout=20).get("data", {})
+
+
+def geo_route(from_lng, from_lat, to_lng, to_lat, modes=None):
+    """客户目标位置 → 房源 的步行/骑行/驾车真实距离与用时。"""
+    payload = {"from_lng": from_lng, "from_lat": from_lat,
+               "to_lng": to_lng, "to_lat": to_lat}
+    if modes:
+        payload["modes"] = modes
+    return _req_ex("POST", "/api/geo/route", payload, timeout=30).get("data", {})
+
+
+# ---------- 日程 / 跟进 / 带看 ----------
+def schedule(days=14):
+    return _req("GET", "/api/schedule", params={"days": days})
+
+
+def followup_create(customer_id, method, content, next_follow_date=None):
+    return _req("POST", "/api/followup",
+                {"customer_id": customer_id, "method": method,
+                 "content": content, "next_follow_date": next_follow_date})
+
+
+def visit_create(customer_id, house_ids, plan_at=None, note=""):
+    """发起带看：plan_at 给日期/时间视为预约(planned)，不给视为已完成(done)。"""
+    return _req("POST", "/api/visit",
+                {"customer_id": customer_id, "house_ids": house_ids,
+                 "plan_at": plan_at, "note": note})
+
+
+def visit_done(vid, result=""):
+    return _req("POST", "/api/visit/%s/done" % vid, {"result": result})
+
+
+def visit_cancel(vid):
+    return _req("POST", "/api/visit/%s/cancel" % vid)
