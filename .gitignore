@@ -1,0 +1,13 @@
+# 编译产物，不上传
+build/
+dist/
+bin/
+.buildozer/
+*.apk
+*.zip
+
+# Python 缓存
+__pycache__/
+*.pyc
+
+# 注意：chinese_font.ttf 必须上传，APK 中文靠它，不要加进忽略
