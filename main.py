@@ -20,17 +20,17 @@ from kivy.utils import get_color_from_hex
 
 import api
 
-# ============ 科技简约主题 ============
-C_BG = get_color_from_hex("#0D1117")
-C_PANEL = get_color_from_hex("#161C24")
-C_PANEL2 = get_color_from_hex("#1C2530")
-C_BORDER = get_color_from_hex("#2A3542")
-C_ACCENT = get_color_from_hex("#2F9BFF")
-C_ACCENT2 = get_color_from_hex("#00D4C8")
-C_TEXT = get_color_from_hex("#E6EDF3")
-C_TEXT2 = get_color_from_hex("#93A1B1")
-C_SUCCESS = get_color_from_hex("#2ECC8F")
-C_DANGER = get_color_from_hex("#FF6B6B")
+# ============ 科技简约主题（浅色 · 白底 · 蓝青强调） ============
+C_BG = get_color_from_hex("#F4F6F9")
+C_PANEL = get_color_from_hex("#FFFFFF")
+C_PANEL2 = get_color_from_hex("#EEF2F7")
+C_BORDER = get_color_from_hex("#DBE3ED")
+C_ACCENT = get_color_from_hex("#2563EB")
+C_ACCENT2 = get_color_from_hex("#0D9488")
+C_TEXT = get_color_from_hex("#1F2937")
+C_TEXT2 = get_color_from_hex("#64748B")
+C_SUCCESS = get_color_from_hex("#16A34A")
+C_DANGER = get_color_from_hex("#DC2626")
 
 # 中文字体：随 APK 打包，注册到所有默认字体名
 _FONT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "chinese_font.ttf")
