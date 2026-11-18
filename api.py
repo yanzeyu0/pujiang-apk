@@ -69,9 +69,10 @@ def health():
     return _req("GET", "/api/health")
 
 
-def customer_list(include_deleted=False):
+def customer_list(only_deleted=False):
+    """only_deleted=True 只看回收站（status=0），默认只看正常客户。"""
     return _req("GET", "/api/customer",
-                params={"include_deleted": 1} if include_deleted else None).get("data", [])
+                params={"only_deleted": 1} if only_deleted else None).get("data", [])
 
 
 def customer_create(data):
@@ -90,10 +91,11 @@ def customer_restore(cid):
     return _req("POST", "/api/customer/%s/restore" % cid)
 
 
-def house_list(deal_type=None, keyword=None, include_deleted=False):
+def house_list(deal_type=None, keyword=None, only_deleted=False):
+    """only_deleted=True 只看回收站（deleted=1），默认只看正常房源。"""
     params = {}
-    if include_deleted:
-        params["include_deleted"] = 1
+    if only_deleted:
+        params["only_deleted"] = 1
     if deal_type:
         params["deal_type"] = deal_type
     if keyword:
@@ -115,3 +117,43 @@ def house_delete(hid):
 
 def house_restore(hid):
     return _req("POST", "/api/house/%s/restore" % hid)
+
+
+# ---------- 图片 ----------
+def upload_image(file_path):
+    """上传单张已本地压缩的图片，返回 /uploads/... URL。"""
+    import os
+    url = base_url() + "/api/upload"
+    with open(file_path, "rb") as f:
+        files = {"file": (os.path.basename(file_path), f)}
+        r = requests.post(url, files=files, timeout=max(_conf["timeout"], 30))
+    r.raise_for_status()
+    return r.json().get("url")
+
+
+def upload_delete(url):
+    return _req("POST", "/api/upload/delete", {"url": url})
+
+
+def image_url(path):
+    if not path:
+        return ""
+    if path.startswith("http://") or path.startswith("https://"):
+        return path
+    return base_url() + path
+
+
+def photos_of(house_row):
+    import json
+    v = house_row.get("photos") if house_row else None
+    if not v:
+        return []
+    if isinstance(v, list):
+        return [x for x in v if x]
+    if isinstance(v, str):
+        try:
+            arr = json.loads(v)
+            return arr if isinstance(arr, list) else [v]
+        except (ValueError, TypeError):
+            return [v]
+    return []
